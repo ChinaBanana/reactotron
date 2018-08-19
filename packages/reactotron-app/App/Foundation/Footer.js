@@ -39,8 +39,7 @@ const Styles = {
     flex: 0,
     alignItems: 'flex-start'
   },
-  reactotron: {
-  },
+  reactotron: {},
   version: {
     fontSize: 12,
     fontWeight: 'bold'
@@ -57,7 +56,6 @@ const Styles = {
 @inject('session')
 @observer
 class Footer extends Component {
-
   render () {
     const { server } = this.props.session
     const { port } = server.options
@@ -65,21 +63,24 @@ class Footer extends Component {
     return (
       <div style={Styles.container}>
         <div style={Styles.content}>
-
           <img src={logoUrl} style={Styles.logo} />
           <div style={Styles.reactotronContainer}>
             <div style={Styles.reactotron}>{APP_NAME}</div>
             <div style={Styles.version}>{APP_VERSION}</div>
           </div>
           <div style={Styles.stretcher} />
-          <p>{PORT_LABEL} {port}</p>
+          <p>
+            {PORT_LABEL} {port}
+          </p>
           <div style={Styles.line} />
-          <p>{connectionCount} {connectionCount === 1 ? CONNECTIONS_SUFFIX_SINGULAR : CONNECTIONS_SUFFIX_PLURAL}</p>
+          <p>
+            {connectionCount}{' '}
+            {connectionCount === 1 ? CONNECTIONS_SUFFIX_SINGULAR : CONNECTIONS_SUFFIX_PLURAL}
+          </p>
         </div>
       </div>
     )
   }
-
 }
 
 export default Footer

@@ -79,10 +79,10 @@ console.tron.log('Sweet Freedom!')
 
 ### Fancy Console Magic :tophat: :sparkles:
 
-You can add an important indicator light on any log by adding `true` as a second parameter.  _E.g._
+You can add an important indicator light by calling `logImportant`.  _E.g._
 ```js
 // or Reactotron.log
-console.tron.log('I am important', true)
+console.tron.logImportant('I am important')
 ```
 
 Additionally, you can access a more advanced message and indicator with `display`.
@@ -97,3 +97,58 @@ console.tron.display({
 })
 ```
 
+## Redux and Immutable data
+If you're using [reactotron-redux](https://github.com/infinitered/reactotron/blob/master/docs/plugin-redux.md)
+and an immutable library such as [seamless-immutable](https://github.com/rtfeldman/seamless-immutable) you need to make sure you transform your state back into an immutable object when using State Snapshots.
+
+To do so you can use the `onRestore` callback like this:
+
+```js
+  .use(reactotronRedux({
+    // Fires when Reactotron uploads a new copy of the state tree.
+    onRestore: state => Immutable(state)
+  }))
+```
+
+However if only some of your reducers are immutable and the rest are mutable you can selectively transform
+the state like this:
+
+```js
+  .use(reactotronRedux({
+    // Fires when Reactotron uploads a new copy of the state tree.
+    onRestore: state => {
+      return { ...Immutable(state), nav: state.nav }
+    }
+  }))
+```
+
+This will `nav` mutable. Note this is what you want to do when using
+[react-navigation's default reducer](https://github.com/react-community/react-navigation/blob/master/docs/guides/Redux-Integration.md).
+
+
+## Custom Commands
+
+Need a custom Reactotron plugin but don't have time to write one?
+
+In the Reactotron App, you can press `command+.` (mac) or  `ctrl+.` (windows/linux) to send a custom command.
+
+These commands can be using for things like:
+
+* clearing async storage
+* triggering an api call
+* calling functions on hard-to-reach places
+* sending info back to reactotron app
+
+Writing your own Reactotron middleware makes this happen.  Check out this example:
+
+```js
+import Reactotron from 'reactotron-react-native'
+
+Reactotron.use(tron => ({
+  onCommand({ type, payload }) {
+    if (type === 'custom') {
+      tron.display({ name: 'ECHO', preview: payload })
+    }
+  },
+}))
+```

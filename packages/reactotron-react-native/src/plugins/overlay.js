@@ -1,7 +1,7 @@
 import React from 'react'
 import { View } from 'react-native'
 import FullScreenOverlay from './full-screen-overlay'
-import mitt from '../mitt'
+import mitt from 'mitt'
 
 /**
  * Provides an image.
@@ -24,7 +24,7 @@ export default () => reactotron => {
     features: {
       overlay: WrappedComponent => props => (
         <View style={{ flex: 1 }}>
-          <WrappedComponent />
+          <WrappedComponent {...props} />
           <FullScreenOverlay emitter={emitter} />
         </View>
       )

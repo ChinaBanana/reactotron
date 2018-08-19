@@ -1,125 +1,257 @@
-import { observable, action, asMap } from 'mobx'
-import Mousetrap from '../Lib/Mousetrap.min.js'
-import { isNilOrEmpty } from 'ramdasauce'
-import Keystroke from '../Lib/Keystroke'
+import { webFrame } from "electron"
+import { action, computed, observable } from "mobx"
+import { trim } from "ramda"
+import { isNilOrEmpty } from "ramdasauce"
+import Keystroke from "../Lib/Keystroke"
+import Mousetrap from "../Lib/Mousetrap.min.js"
 
 /**
  * Handles UI state.
  */
 class UI {
-  /**
-   * Which tab are we on?
-   */
-  @observable tab = 'timeline'
-
-  /**
-   * Targets state keys or values from the UI & commands.
-   */
-  @observable keysOrValues = 'keys'
-
-  // whether or not to show the state find dialog
+  @observable tab = "timeline"
+  @observable homeSubNav = "connections"
+  @observable stateSubNav = "subscriptions"
+  @observable nativeSubNav = "image"
+  @observable keysOrValues = "keys"
   @observable showStateFindDialog = false
-
-  // whether or not to show the state dispatch dialog
   @observable showStateDispatchDialog = false
-
-  // whether or not to show the help dialog
   @observable showHelpDialog = false
-
-  // the watch dialog
   @observable showStateWatchDialog = false
-
-  // wheter or not to show the timeline filter dialog
   @observable showFilterTimelineDialog = false
-
-  // the current watch to add
+  @observable statusBarExpanded = false
   @observable watchToAdd
-
-  // the current action to dispatch
   @observable actionToDispatch
-
-  // show the watch panel?
   @observable showWatchPanel = false
+  @observable customMessage = ""
+  @observable showSendCustomDialog = false
+  @observable isTimelineSearchVisible = false
+  @observable isSidebarVisible = true
+  @observable isStorybookShown = false
+  @observable searchPhrase = ""
+  zoomLevel = 0
 
   // additional properties that some commands may want... a way to communicate
   // from the command toolbar to the command
   commandProperties = {}
 
-  constructor (server) {
+  constructor(server, commandsManager, stateBackupStore, getSelectedConnection) {
     this.server = server
+    this.commandsManager = commandsManager
+    this.stateBackupStore = stateBackupStore
+    this.getSelectedConnection = getSelectedConnection
 
     Mousetrap.prototype.stopCallback = () => false
 
-    Mousetrap.bind(`${Keystroke.mousetrap}+k`, this.reset)
-    Mousetrap.bind(`${Keystroke.mousetrap}+f`, this.openStateFindDialog)
+    Mousetrap.bind(`${Keystroke.mousetrap}+backspace`, this.reset)
+    Mousetrap.bind(`${Keystroke.mousetrap}+k`, this.openStateFindDialog)
     Mousetrap.bind(`${Keystroke.mousetrap}+shift+f`, this.openFilterTimelineDialog)
     Mousetrap.bind(`${Keystroke.mousetrap}+d`, this.openStateDispatchDialog)
-    Mousetrap.bind(`${Keystroke.mousetrap}+s`, this.backupState)
+    Mousetrap.bind(`${Keystroke.mousetrap}+s`, () => this.stateBackupStore.sendBackup())
     Mousetrap.bind(`tab`, this.toggleKeysValues)
     Mousetrap.bind(`escape`, this.popState)
     Mousetrap.bind(`enter`, this.submitCurrentForm)
     Mousetrap.bind(`${Keystroke.mousetrap}+enter`, this.submitCurrentFormDelicately)
     Mousetrap.bind(`${Keystroke.mousetrap}+n`, this.openStateWatchDialog)
-    Mousetrap.bind(`${Keystroke.mousetrap}+1`, this.switchTab.bind(this, 'timeline'))
-    Mousetrap.bind(`${Keystroke.mousetrap}+2`, this.switchTab.bind(this, 'subscriptions'))
-    Mousetrap.bind(`${Keystroke.mousetrap}+3`, this.switchTab.bind(this, 'backups'))
-    Mousetrap.bind(`${Keystroke.mousetrap}+4`, this.switchTab.bind(this, 'native'))
-    Mousetrap.bind(`${Keystroke.mousetrap}+/`, this.switchTab.bind(this, 'help'))
-    Mousetrap.bind(`${Keystroke.mousetrap}+?`, this.switchTab.bind(this, 'help'))
+    Mousetrap.bind(`${Keystroke.mousetrap}+1`, this.switchTab.bind(this, "home"))
+    Mousetrap.bind(`${Keystroke.mousetrap}+2`, this.switchTab.bind(this, "timeline"))
+    Mousetrap.bind(`${Keystroke.mousetrap}+3`, this.switchTab.bind(this, "state"))
+    Mousetrap.bind(`${Keystroke.mousetrap}+4`, this.switchTab.bind(this, "native"))
+    Mousetrap.bind(`${Keystroke.mousetrap}+?`, this.switchTab.bind(this, "help"))
+    Mousetrap.bind(`${Keystroke.mousetrap}+f`, this.showTimelineSearch)
+    Mousetrap.bind(`${Keystroke.mousetrap}+.`, this.openSendCustomDialog)
+    Mousetrap.bind(`${Keystroke.mousetrap}+shift+s`, this.toggleSidebar)
+    Mousetrap.bind(`${Keystroke.mousetrap}+-`, this.zoomOut.bind(this))
+    Mousetrap.bind(`${Keystroke.mousetrap}+=`, this.zoomIn.bind(this))
+    Mousetrap.bind(`${Keystroke.mousetrap}+0`, this.resetZoom.bind(this))
   }
 
-  @action switchTab = (newTab) => {
+  zoomOut() {
+    this.zoomLevel--
+    webFrame.setZoomLevel(this.zoomLevel)
+  }
+
+  zoomIn() {
+    this.zoomLevel++
+    webFrame.setZoomLevel(this.zoomLevel)
+  }
+
+  resetZoom() {
+    this.zoomLevel = 0
+    webFrame.setZoomLevel(this.zoomLevel)
+  }
+
+  @action
+  setSearchPhrase = value => {
+    this.searchPhrase = value
+  }
+
+  /**
+   * Get the scrubbed search phrase.
+   */
+  @computed
+  get cleanedSearchPhrase() {
+    return trim(this.searchPhrase || "")
+  }
+
+  /**
+   * The regular expression we will be using to search commands.
+   */
+  @computed
+  get searchRegexp() {
+    try {
+      return new RegExp(this.cleanedSearchPhrase.replace(/\s/, "."), "i")
+    } catch (e) {
+      return null
+    }
+  }
+
+  /**
+   * Is this search phrase useable?
+   */
+  @computed
+  get isValidSearchPhrase() {
+    return Boolean(this.searchRegexp)
+  }
+
+  @action
+  hideTimelineSearch = () => {
+    this.isTimelineSearchVisible = false
+  }
+
+  @action
+  showTimelineSearch = () => {
+    this.isTimelineSearchVisible = false // hack to ensure the reaction on the timeline header works (sheesh.)
+    this.isTimelineSearchVisible = true
+    this.switchTab("timeline")
+  }
+
+  @action
+  toggleTimelineSearch = () => {
+    if (this.isTimelineSearchVisible) {
+      this.hideTimelineSearch()
+    } else {
+      this.showTimelineSearch()
+    }
+  }
+
+  @action
+  hideSidebar = () => {
+    this.isSidebarVisible = false
+  }
+
+  @action
+  showSidebar = () => {
+    this.isSidebarVisible = true
+  }
+
+  @action
+  toggleSidebar = () => {
+    if (this.isSidebarVisible) {
+      this.hideSidebar()
+    } else {
+      this.showSidebar()
+    }
+  }
+
+  @action
+  switchTab = newTab => {
     this.tab = newTab
   }
 
-  @action popState = () => {
+  @action
+  setHomeSubNav = value => {
+    this.homeSubNav = value
+  }
+
+  @action
+  setStateSubNav = value => {
+    this.stateSubNav = value
+  }
+
+  @action
+  setNativeSubNav = value => {
+    this.nativeSubNav = value
+  }
+
+  @computed
+  get isModalShowing() {
+    return (
+      this.showStateWatchDialog ||
+      this.showStateFindDialog ||
+      this.showStateDispatchDialog ||
+      this.showFilterTimelineDialog ||
+      this.stateBackupStore.renameDialogVisible ||
+      this.showSendCustomDialog
+    )
+  }
+
+  @action
+  popState = e => {
     if (this.showStateFindDialog) {
       this.closeStateFindDialog()
-    }
-    if (this.showHelpDialog) {
+    } else if (this.showHelpDialog) {
       this.closeHelpDialog()
     }
+    return false
   }
 
-  @action submitCurrentForm = () => {
+  @action
+  submitCurrentForm = () => {
     if (this.showStateWatchDialog) {
       this.submitStateWatch()
+    } else if (this.stateBackupStore.renameDialogVisible) {
+      this.stateBackupStore.commitRename()
+    } else if (this.showSendCustomDialog) {
+      this.submitCurrentMessage()
     }
   }
 
-  @action submitCurrentFormDelicately = () => {
+  @action
+  submitCurrentFormDelicately = () => {
     if (this.showStateDispatchDialog) {
       this.submitStateDispatch()
     }
   }
 
-  @action submitStateWatch = () => {
+  @action
+  submitStateWatch = () => {
     this.server.stateValuesSubscribe(this.watchToAdd)
     this.showStateWatchDialog = false
     this.watchToAdd = null
   }
 
-  @action removeStateWatch = (path) => {
+  @action
+  submitCurrentMessage = () => {
+    this.sendCustomMessage(this.customMessage)
+    this.customMessage = ""
+    this.showSendCustomDialog = false
+  }
+
+  @action
+  removeStateWatch = path => {
     this.server.stateValuesUnsubscribe(path)
   }
 
-  @action clearStateWatches = () => {
+  @action
+  clearStateWatches = () => {
     this.server.stateValuesClearSubscriptions()
   }
 
-  @action setActionToDispatch (action) {
+  @action
+  setActionToDispatch(action) {
     this.actionToDispatch = action
     this.showStateDispatchDialog = true
   }
 
-  @action submitStateDispatch = () => {
+  @action
+  submitStateDispatch = () => {
     // try not to blow up the frame
     let action = null
     try {
       // brackets are need on chromium side, huh.
-      action = eval('(' + this.actionToDispatch + ')') // eslint-disable-line
-    } catch (e) {
-    }
+      action = eval("(" + this.actionToDispatch + ")") // eslint-disable-line
+    } catch (e) {}
     // jet if not valid
     if (isNilOrEmpty(action)) return
 
@@ -129,95 +261,140 @@ class UI {
     this.showStateDispatchDialog = false
   }
 
-  @action openStateFindDialog = () => {
+  @action
+  openStateFindDialog = () => {
     this.showStateFindDialog = true
   }
 
-  @action closeStateFindDialog = () => {
+  @action
+  closeStateFindDialog = () => {
     this.showStateFindDialog = false
   }
 
-  @action openStateWatchDialog = () => {
+  @action
+  openStateWatchDialog = () => {
     this.showStateWatchDialog = true
   }
 
-  @action closeStateWatchDialog = () => {
+  @action
+  closeStateWatchDialog = () => {
     this.showStateWatchDialog = false
   }
 
-  @action openStateDispatchDialog = () => {
+  @action
+  openStateDispatchDialog = () => {
     this.showStateDispatchDialog = true
   }
 
-  @action toggleHelpDialog = () => {
+  @action
+  toggleHelpDialog = () => {
     this.showHelpDialog = !this.showHelpDialog
   }
 
-  @action openHelpDialog = () => {
+  @action
+  openHelpDialog = () => {
     this.showHelpDialog = true
   }
 
-  @action closeStateDispatchDialog = () => {
+  @action
+  closeStateDispatchDialog = () => {
     this.showStateDispatchDialog = false
   }
 
-  @action closeHelpDialog = () => {
+  @action
+  closeHelpDialog = () => {
     this.showHelpDialog = false
   }
 
-  @action openFilterTimelineDialog = () => {
+  @action
+  openFilterTimelineDialog = () => {
     this.showFilterTimelineDialog = true
   }
 
-  @action closeFilterTimelineDialog = () => {
+  @action
+  closeFilterTimelineDialog = () => {
     this.showFilterTimelineDialog = false
   }
 
-  @action reset = () => {
-    this.server.commands.all.clear()
+  @action
+  openSendCustomDialog = () => {
+    this.showSendCustomDialog = true
   }
 
-  @action getStateKeysOrValues = (path) => {
-    if (this.keysOrValues === 'keys') {
+  @action
+  closeSendCustomDialog = () => {
+    this.showSendCustomDialog = false
+  }
+
+  @action
+  openStatusBar = () => {
+    this.statusBarExpanded = true
+  }
+
+  @action
+  closeStatusBar = () => {
+    this.statusBarExpanded = false
+  }
+
+  @action
+  reset = () => {
+    const selectedConnection = this.getSelectedConnection()
+
+    if (!selectedConnection) return
+
+    this.commandsManager.clearClientsCommands(selectedConnection.clientId)
+  }
+
+  @action
+  getStateKeysOrValues = path => {
+    if (this.keysOrValues === "keys") {
       this.getStateKeys(path)
     } else {
       this.getStateValues(path)
     }
   }
 
-  @action getStateValues = (path) => {
-    this.server.stateValuesRequest(path)
+  @action
+  getStateValues = path => {
+    this.server.send("state.values.request", { path })
   }
 
-  @action getStateKeys = (path) => {
-    this.server.stateKeysRequest(path)
+  @action
+  getStateKeys = path => {
+    this.server.send("state.keys.request", { path })
   }
 
-  @action dispatchAction = action => {
-    this.server.stateActionDispatch(action)
+  @action
+  dispatchAction = action => {
+    this.server.send("state.action.dispatch", { action })
   }
 
-  @action toggleKeysValues = () => {
-    if (this.keysOrValues === 'keys') {
-      this.keysOrValues = 'values'
+  @action
+  sendCustomMessage = value => {
+    const selectedConnection = this.getSelectedConnection()
+
+    if (!selectedConnection) return
+
+    this.server.sendCustomMessage(value, selectedConnection.clientId)
+  }
+
+  @action
+  setCustomMessage = value => {
+    this.customMessage = value
+  }
+
+  @action
+  toggleKeysValues = () => {
+    if (this.keysOrValues === "keys") {
+      this.keysOrValues = "values"
     } else {
-      this.keysOrValues = 'keys'
+      this.keysOrValues = "keys"
     }
   }
 
-  @action toggleWatchPanel = () => {
+  @action
+  toggleWatchPanel = () => {
     this.showWatchPanel = !this.showWatchPanel
-  }
-
-  // grab a copy of the state for backup purposes
-  @action backupState = () => this.server.stateBackupRequest()
-
-  // change the state on the app to this
-  @action restoreState = state => this.server.stateRestoreRequest(state)
-
-  // removes an existing state object
-  @action deleteState = state => {
-    this.server.commands['state.backup.response'].remove(state)
   }
 
   getCommandProperty = (messageId, key) => {
@@ -225,15 +402,15 @@ class UI {
     if (props) {
       return props.get(key)
     } else {
-      this.commandProperties[messageId] = observable(asMap({}))
+      this.commandProperties[messageId] = observable.map({})
       return this.commandProperties[messageId].get(key, null)
     }
   }
 
-  @action setCommandProperty = (messageId, key, value) => {
-    // console.log('setting', messageId, key, value, this.commandProperties)
+  @action
+  setCommandProperty = (messageId, key, value) => {
     if (!this.commandProperties[messageId]) {
-      this.commandProperties[messageId] = observable(asMap({}))
+      this.commandProperties[messageId] = observable.map({})
     }
     this.commandProperties[messageId].set(key, value)
   }
@@ -241,14 +418,49 @@ class UI {
   /**
    * Asks the client to the file in the editor
    */
-  @action openInEditor = (file, lineNumber) =>
-    this.server.openInEditor({ file, lineNumber })
+  @action openInEditor = (file, lineNumber) => this.server.send("editor.open", { file, lineNumber })
 
   /**
    * Sets the properties of the overlay shown on the React Native app.
    */
-  @action setOverlay = props =>
-    this.server.send('overlay', props)
+  @action setOverlay = props => this.server.send("overlay", props)
+
+  /**
+   * Toggles storybook
+   */
+  @action
+  toggleStorybook = () => {
+    this.isStorybookShown = !this.isStorybookShown
+
+    this.server.send("storybook", this.isStorybookShown)
+  }
+
+  /**
+   * Turn on storybook for the current client.
+   */
+  @action
+  enableStorybook = () => {
+    if (this.isStorybookShown) return
+    this.isStorybookShown = true
+    this.sendStorybookState()
+  }
+
+  /**
+   * Turn off storybook for the current client.
+   */
+  @action
+  disableStorybook = () => {
+    if (!this.isStorybookShown) return
+    this.isStorybookShown = false
+    this.sendStorybookState()
+  }
+
+  /**
+   * Sends the current storybook state to the app.
+   */
+  sendStorybookState = clientId => {
+    this.server.send("storybook", this.isStorybookShown, clientId)
+  }
 
 }
 

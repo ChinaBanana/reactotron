@@ -1,4 +1,5 @@
-import React, { Component, PropTypes } from 'react'
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
 import { Animated, Easing, TouchableWithoutFeedback, View, Text, Image } from 'react-native'
 import Styles from './Styles/RepoStyles'
 import Button from './Button'
@@ -7,21 +8,6 @@ import { merge } from 'ramda'
 const ROTATION = { inputRange: [0, 1], outputRange: ['0deg', '360deg'] }
 
 class Repo extends Component {
-
-  static propTypes = {
-    repo: PropTypes.string,
-    name: PropTypes.string,
-    avatar: PropTypes.string,
-    message: PropTypes.string,
-    bigger: PropTypes.func,
-    smaller: PropTypes.func,
-    faster: PropTypes.func,
-    slower: PropTypes.func,
-    reset: PropTypes.func,
-    size: PropTypes.number,
-    speed: PropTypes.number
-  }
-
   constructor (props) {
     super(props)
     this.state = {
@@ -48,7 +34,7 @@ class Repo extends Component {
     this.animation = Animated.sequence([
       Animated.timing(this.state.spinny, { toValue: 1, duration, easing })
       // Animated.timing(this.state.spinny, { toValue: 0, duration: 0 })
-    ]).start(({finished}) => {
+    ]).start(({ finished }) => {
       if (finished) {
         this.animate()
       } else {
@@ -59,9 +45,7 @@ class Repo extends Component {
 
   getAnimationStyle () {
     return {
-      transform: [
-        { rotate: this.state.spinny.interpolate(ROTATION) }
-      ]
+      transform: [{ rotate: this.state.spinny.interpolate(ROTATION) }]
     }
   }
 
@@ -69,7 +53,11 @@ class Repo extends Component {
     const { repo, name, avatar, message, size } = this.props
     const avatarSource = avatar && { uri: avatar }
 
-    const avatarStyles = merge(Styles.avatar, { width: size, height: size, borderRadius: size * 0.5 })
+    const avatarStyles = merge(Styles.avatar, {
+      width: size,
+      height: size,
+      borderRadius: size * 0.5
+    })
     const centerStyles = merge(Styles.center, this.getAnimationStyle())
     return (
       <View style={Styles.container}>
@@ -94,6 +82,20 @@ class Repo extends Component {
       </View>
     )
   }
+}
+
+Repo.propTypes = {
+  repo: PropTypes.string,
+  name: PropTypes.string,
+  avatar: PropTypes.string,
+  message: PropTypes.string,
+  bigger: PropTypes.func,
+  smaller: PropTypes.func,
+  faster: PropTypes.func,
+  slower: PropTypes.func,
+  reset: PropTypes.func,
+  size: PropTypes.number,
+  speed: PropTypes.number
 }
 
 export default Repo

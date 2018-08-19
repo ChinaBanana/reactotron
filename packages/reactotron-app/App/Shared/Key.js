@@ -1,10 +1,10 @@
-import React, { Component, PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import Colors from '../Theme/Colors'
 
 const Styles = {
   container: {
     color: Colors.background,
-    textTransform: 'uppercase',
     borderRadius: 4,
     backgroundColor: Colors.foreground,
     padding: '4px 12px',
@@ -15,22 +15,14 @@ const Styles = {
   }
 }
 
-class Key extends Component {
+const Key = props => {
+  const { text } = props
 
-  static propTypes = {
-    text: PropTypes.string.isRequired
-  }
+  return <span style={Styles.container}>{text}</span>
+}
 
-  render () {
-    const { text } = this.props
-
-    return (
-      <span style={Styles.container}>
-        {text}
-      </span>
-    )
-  }
-
+Key.propTypes = {
+  text: PropTypes.string.isRequired
 }
 
 export default Key

@@ -1,7 +1,6 @@
 /**
  * Provides a global error handler to report errors..
  */
-import { merge, map, reject } from 'ramda'
 import { NativeModules } from 'react-native'
 
 // a few functions to help source map errors -- these seem to be not available immediately
@@ -19,7 +18,7 @@ const PLUGIN_DEFAULTS = {
 // our plugin entry point
 export default options => reactotron => {
   // setup configuration
-  const config = merge(PLUGIN_DEFAULTS, options || {})
+  const config = Object.assign({}, PLUGIN_DEFAULTS, options || {})
 
   let swizzled = null
   let isSwizzled = false
@@ -31,16 +30,18 @@ export default options => reactotron => {
     // then convert & transport it
     try {
       // rewrite the stack frames to be in the format we're expecting
-      let stack = map(frame => ({
-        functionName: frame.methodName === '<unknown>' ? null : frame.methodName,
-        lineNumber: frame.lineNumber,
-        columnNumber: frame.column,
-        fileName: frame.file
-      }), prettyStack)
+      let stack = prettyStack.map(
+        frame => ({
+          functionName: frame.methodName === '<unknown>' ? null : frame.methodName,
+          lineNumber: frame.lineNumber,
+          columnNumber: frame.column,
+          fileName: frame.file
+        })
+      )
 
       // does the dev want us to keep each frame?
       if (config.veto) {
-        stack = reject(config.veto, stack)
+        stack = stack.filter(frame => config.veto(frame))
       }
 
       // throw it over to us
@@ -53,6 +54,7 @@ export default options => reactotron => {
   // here's how to swizzle
   function trackGlobalErrors () {
     if (isSwizzled) return
+    if (!NativeModules.ExceptionsManager) return
     swizzled = NativeModules.ExceptionsManager.updateExceptionMessage
     NativeModules.ExceptionsManager.updateExceptionMessage = reactotronExceptionHijacker
     isSwizzled = true
@@ -61,6 +63,7 @@ export default options => reactotron => {
   // restore the original
   function untrackGlobalErrors () {
     if (!swizzled) return
+    if (!NativeModules.ExceptionsManager) return
     NativeModules.ExceptionsManager.updateExceptionMessage = swizzled
     isSwizzled = false
   }
@@ -71,8 +74,11 @@ export default options => reactotron => {
   // manually fire an error
   function reportError (error) {
     try {
-      parseErrorStack = parseErrorStack || require('react-native/Libraries/Core/Devtools/parseErrorStack')
-      symbolicateStackTrace = symbolicateStackTrace || require('react-native/Libraries/Core/Devtools/symbolicateStackTrace')
+      parseErrorStack =
+        parseErrorStack || require('react-native/Libraries/Core/Devtools/parseErrorStack')
+      symbolicateStackTrace =
+        symbolicateStackTrace ||
+        require('react-native/Libraries/Core/Devtools/symbolicateStackTrace')
       if (parseErrorStack && symbolicateStackTrace) {
         const parsedStacktrace = parseErrorStack(error)
 
@@ -85,13 +91,11 @@ export default options => reactotron => {
 
           // does the dev want us to keep each frame?
           if (config.veto) {
-            stack = reject(config.veto, stack)
+            stack = stack.filter(frame => config.veto(frame))
           }
 
           reactotron.error(error.message, stack)
         })
-
-        return
       }
     } catch (e) {
       // nothing happened. move along.

@@ -1,13 +1,39 @@
 import { is } from 'redux-saga/utils'
 import getEffectName from './get-effect-name'
 import getEffectDescription from './get-effect-description'
-import { ITERATOR, CALL, PUT, FORK, RACE, PENDING, RESOLVED, REJECTED, CANCELLED } from './saga-constants'
-import { reject, values, pluck, isNil, split, pathOr, last, forEach, propEq, filter, __ } from 'ramda'
+import {
+  ITERATOR,
+  CALL,
+  PUT,
+  FORK,
+  RACE,
+  PENDING,
+  RESOLVED,
+  REJECTED,
+  CANCELLED
+} from './saga-constants'
+import {
+  contains,
+  reject,
+  values,
+  pluck,
+  isNil,
+  split,
+  pathOr,
+  last,
+  forEach,
+  propEq,
+  filter,
+  __
+} from 'ramda'
+// import { reject, values, pluck, isNil, split, pathOr, last, forEach, propEq, filter, __, map, omit } from 'ramda'
 
 // creates a saga monitor
-export default (reactotron, options) => {
+export default (reactotron, options, pluginConfig = {}) => {
   // a lookup table of effects - keys are numbers, values are objects
-  const effects = {}
+  let effects = {}
+
+  const exceptions = pluginConfig.except || []
 
   // filtering that effect table
   const byParentId = propEq('parentEffectId', __)
@@ -17,6 +43,9 @@ export default (reactotron, options) => {
 
   // start a relative timer
   const timer = reactotron.startTimer()
+
+  // ---------------- Sending Effect Updates ----------------
+  // const sendReactotronEffectTree = () => reactotron.send('saga.effect.update', effects)
 
   // ---------------- Starting -----------------------------
 
@@ -39,6 +68,9 @@ export default (reactotron, options) => {
 
     // store it
     effects[effectId] = effectInfo
+
+    // send it
+    // sendReactotronEffectTree()
   }
 
   // ---------------- Finishing ----------------------------
@@ -85,59 +117,59 @@ export default (reactotron, options) => {
         if (isNil(sourceEffectInfo)) return
 
         let extra = null
-        switch (sourceEffectInfo.name) {
-          case CALL:
-            extra = sourceEffectInfo.effect[sourceEffectInfo.name].args
-            break
+        if (sourceEffectInfo.effect) {
+          switch (sourceEffectInfo.name) {
+            case CALL:
+              extra = sourceEffectInfo.effect[sourceEffectInfo.name].args
+              break
 
-          case PUT:
-            extra = sourceEffectInfo.effect[sourceEffectInfo.name].action
-            break
+            case PUT:
+              extra = sourceEffectInfo.effect[sourceEffectInfo.name].action
+              break
 
-          // children handle this
-          case RACE:
-            break
+            // children handle this
+            case RACE:
+              break
 
-          // TODO: More of customizations needed here
+            // TODO: More of customizations needed here
 
-          default:
-            extra = sourceEffectInfo.effect[sourceEffectInfo.name]
-            break
+            default:
+              extra = sourceEffectInfo.effect[sourceEffectInfo.name]
+              break
+          }
         }
         // assemble the structure
         children.push({
           depth,
           effectId: sourceEffectInfo.effectId,
-          parentEffectId: sourceEffectInfo.parentEffectId,
-          name: sourceEffectInfo.name,
-          description: sourceEffectInfo.description,
+          parentEffectId: sourceEffectInfo.parentEffectId || null,
+          name: sourceEffectInfo.name || null,
+          description: sourceEffectInfo.description || null,
           duration: Math.round(sourceEffectInfo.duration),
-          status: sourceEffectInfo.status,
-          winner: sourceEffectInfo.winner,
-          loser: sourceEffectInfo.loser,
-          result: sourceEffectInfo.result,
-          extra
+          status: sourceEffectInfo.status || null,
+          winner: sourceEffectInfo.winner || null,
+          loser: sourceEffectInfo.loser || null,
+          result: sourceEffectInfo.result || null,
+          extra: extra || null
         })
 
         // rerun this function for our children
-        forEach(
-          x => buildChild(depth + 1, x),
-          getChildEffectIds(effectId)
-        )
+        forEach(x => buildChild(depth + 1, x), getChildEffectIds(effectId))
       }
       const xs = getChildEffectIds(effectId)
-      forEach(
-        effectId => buildChild(0, effectId),
-        xs
-      )
+      forEach(effectId => buildChild(0, effectId), xs)
     }
 
-    reactotron.send('saga.task.complete', {
-      triggerType: triggerType || effectInfo.description,
-      description: sagaDescription,
-      duration: Math.round(duration),
-      children
-    })
+    // saga not blacklisted?
+    if (!contains(effectInfo.description, exceptions)) {
+      reactotron.send('saga.task.complete', {
+        triggerType: triggerType || effectInfo.description,
+        description: sagaDescription,
+        duration: Math.round(duration),
+        children
+      })
+    }
+    // effects = omit(map(String, pluck('effectId', children)), effects)
   }
 
   // redux-saga calls this when an effect is resolved (successfully or not)
@@ -160,16 +192,14 @@ export default (reactotron, options) => {
       }
 
       // hook the promise to capture the resolve or reject
-      result.done.then(
-        onTaskResult,
-        error => {
-          effectRejected(effectId, error)
-          if (!error.reactotronWasHere) {
-            reactotron.reportError(error)
-          }
-          error.reactotronWasHere = true
+      var promise = result.done ? result.done : result.toPromise()
+      promise.then(onTaskResult, error => {
+        effectRejected(effectId, error)
+        if (!error.reactotronWasHere) {
+          reactotron.reportError(error)
         }
-      )
+        error.reactotronWasHere = true
+      })
     } else {
       // this is an effect and we are complete
       effectInfo.status = RESOLVED
@@ -178,6 +208,9 @@ export default (reactotron, options) => {
         setRaceWinner(effectId, result)
       }
     }
+
+    // send it
+    // sendReactotronEffectTree()
   }
 
   // flags on of the children as the winner
@@ -186,8 +219,12 @@ export default (reactotron, options) => {
     const children = getChildEffectInfos(effectId)
     const winningChildren = filter(byLabel(winnerLabel), children)
     const losingChildren = reject(byLabel(winnerLabel), children)
-    const setWinner = effectInfo => { effectInfo.winner = true }
-    const setLoser = effectInfo => { effectInfo.loser = true }
+    const setWinner = effectInfo => {
+      effectInfo.winner = true
+    }
+    const setLoser = effectInfo => {
+      effectInfo.loser = true
+    }
 
     // set the 1 (hopefully 1) winner -- but i'm not sure
     forEach(setWinner, winningChildren)
@@ -205,6 +242,9 @@ export default (reactotron, options) => {
     if (effectInfo.name === RACE) {
       setRaceWinner(effectId, error)
     }
+
+    // send it
+    // sendReactotronEffectTree()
   }
 
   // ---------------- Cancelling ---------------------------
@@ -214,6 +254,9 @@ export default (reactotron, options) => {
     const effectInfo = effects[effectId]
     updateDuration(effectInfo)
     effectInfo.status = CANCELLED
+
+    // send it
+    // sendReactotronEffectTree()
   }
 
   // the interface for becoming a redux-saga monitor

@@ -1,18 +1,29 @@
-import babel from 'rollup-plugin-babel'
+import commonjs from 'rollup-plugin-commonjs'
+import filesize from 'rollup-plugin-filesize'
+import uglify from 'rollup-plugin-uglify'
+import sourcemaps from 'rollup-plugin-sourcemaps'
+import replace from "rollup-plugin-replace"
+
+const coreClientVersion = require('./package.json').version
 
 export default {
-  entry: 'src/index.js',
-  format: 'cjs',
+  input: 'compiled/reactotron-core-client.js',
   plugins: [
-    babel({
-      babelrc: false,
-      presets: ['es2015-rollup', 'stage-1']
-    })
+    commonjs({
+      include: 'node_modules/**',
+      ignoreGlobals: false,
+    }),
+    replace({
+      REACTOTRON_CORE_CLIENT_VERSION: coreClientVersion,
+    }),
+    sourcemaps(),
+    uglify(),
+    filesize(),
   ],
-  dest: 'dist/index.js',
-  external: [
-    'ramda',
-    'ramdasauce',
-    'json-stringify-safe'
-  ]
+  output: {
+    file: 'dist/reactotron-core-client.js',
+    format: 'cjs',
+    exports: 'named',
+    sourcemap: true,
+  }
 }

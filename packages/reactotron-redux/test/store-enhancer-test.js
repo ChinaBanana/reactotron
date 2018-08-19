@@ -1,6 +1,6 @@
 import test from 'ava'
 import createEnhancer from '../src/store-enhancer'
-import { createClient, CorePlugins } from 'reactotron-core-client'
+import { createClient, corePlugins } from 'reactotron-core-client'
 import { createStore, applyMiddleware, compose, combineReducers } from 'redux'
 
 test('detect invalid reactotron client', t => {
@@ -29,19 +29,20 @@ test('tests pretty much everything', t => {
   }
 
   // test the important callback
-  const isActionImportant = (action) => {
+  const isActionImportant = action => {
     importantCount++
     return true
   }
 
   // grab the enhancer
-  const client = createClient({ io, plugins: CorePlugins })
+  const client = createClient({ io, plugins: corePlugins })
   const enhancer = createEnhancer(client, { isActionImportant })
   t.is(typeof enhancer, 'function')
 
   // things to make sure our internal middleware chains dispatch properly
   const initialState = { i: 7 }
-  const fun = (state = initialState, action) => action.type === 'add' ? { ...state, i: state.i + 1 } : state
+  const fun = (state = initialState, action) =>
+    action.type === 'add' ? { ...state, i: state.i + 1 } : state
   const rootReducer = combineReducers({ fun })
   const action = { type: 'add', foo: 'bar' }
 

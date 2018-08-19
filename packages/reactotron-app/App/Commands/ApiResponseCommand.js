@@ -1,12 +1,14 @@
-import React, { Component, PropTypes } from 'react'
-import Command from '../Shared/Command'
-import { dotPath, isNilOrEmpty } from 'ramdasauce'
-import { toUpper, equals, isNil } from 'ramda'
-import makeTable from '../Shared/MakeTable'
-import Colors from '../Theme/Colors'
-import AppStyles from '../Theme/AppStyles'
-import SectionLink from './SectionLink'
-import Content from '../Shared/Content'
+import { observer } from "mobx-react"
+import PropTypes from "prop-types"
+import { equals, isNil, pipe, replace, toUpper } from "ramda"
+import { dotPath, isNilOrEmpty } from "ramdasauce"
+import React, { Component } from "react"
+import Command from "../Shared/Command"
+import Content from "../Shared/Content"
+import makeTable from "../Shared/MakeTable"
+import AppStyles from "../Theme/AppStyles"
+import Colors from "../Theme/Colors"
+import SectionLink from "./SectionLink"
 
 // Given a request body (string), attempts to coerce it to a JSON string.
 // and if successful, returns that JSON object instead.  A friendlier way
@@ -24,7 +26,7 @@ const getRequestText = request => {
       return request
     } else {
       // embed a "root" level node
-      return { ' ': toJson }
+      return { " ": toJson }
     }
   } catch (e) {
     // any problems, return the original string
@@ -32,42 +34,42 @@ const getRequestText = request => {
   }
 }
 
-const COMMAND_TITLE = 'API RESPONSE'
-const REQUEST_HEADER_TITLE = 'Request Headers'
-const RESPONSE_HEADER_TITLE = 'Response Headers'
-const REQUEST_BODY_TITLE = 'Request'
-const RESPONSE_BODY_TITLE = 'Response'
-const REQUEST_PARAMS_TITLE = 'Request Params'
-const NO_REQUEST_BODY = 'Nothing sent.'
-const NO_REQUEST_PARAMS = 'No params sent.'
+const COMMAND_TITLE = "API RESPONSE"
+const REQUEST_HEADER_TITLE = "Request Headers"
+const RESPONSE_HEADER_TITLE = "Response Headers"
+const REQUEST_BODY_TITLE = "Request"
+const RESPONSE_BODY_TITLE = "Response"
+const REQUEST_PARAMS_TITLE = "Request Params"
+const NO_REQUEST_BODY = "Nothing sent."
+const NO_REQUEST_PARAMS = "No params sent."
 
 const Styles = {
-  container: {
-  },
+  container: {},
   method: {},
   status: {},
-  duration: {
-  },
+  duration: {},
   url: {
-    wordBreak: 'break-all',
+    wordBreak: "break-all",
     color: Colors.constant,
-    paddingBottom: 10
+    paddingBottom: 10,
+    WebkitUserSelect: "text",
+    cursor: "text",
   },
   headerTitle: {
     margin: 0,
     padding: 0,
     paddingTop: 8,
     paddingBottom: 0,
-    color: Colors.constant
+    color: Colors.constant,
   },
   sectionLinks: {
     ...AppStyles.Layout.hbox,
     paddingTop: 10,
-    paddingBottom: 10
+    paddingBottom: 10,
   },
   spacer: {
-    flex: 1
-  }
+    flex: 1,
+  },
 }
 
 const INITIAL_STATE = {
@@ -75,16 +77,16 @@ const INITIAL_STATE = {
   showResponseHeaders: false,
   showRequestBody: false,
   showResponseBody: false,
-  showRequestParams: false
+  showRequestParams: false,
 }
 
+@observer
 class ApiResponseCommand extends Component {
-
   static propTypes = {
-    command: PropTypes.oneOfType([PropTypes.object, PropTypes.array]).isRequired
+    command: PropTypes.oneOfType([PropTypes.object, PropTypes.array]).isRequired,
   }
 
-  constructor (props) {
+  constructor(props) {
     super(props)
     this.state = INITIAL_STATE
     this.toggleRequestHeaders = this.toggleRequestHeaders.bind(this)
@@ -94,75 +96,102 @@ class ApiResponseCommand extends Component {
     this.toggleRequestParams = this.toggleRequestParams.bind(this)
   }
 
-  toggleRequestHeaders () {
+  toggleRequestHeaders() {
     this.setState({ ...INITIAL_STATE, showRequestHeaders: !this.state.showRequestHeaders })
   }
 
-  toggleResponseHeaders () {
+  toggleResponseHeaders() {
     this.setState({ ...INITIAL_STATE, showResponseHeaders: !this.state.showResponseHeaders })
   }
 
-  toggleRequestBody () {
+  toggleRequestBody() {
     this.setState({ ...INITIAL_STATE, showRequestBody: !this.state.showRequestBody })
   }
 
-  toggleResponseBody () {
+  toggleResponseBody() {
     this.setState({ ...INITIAL_STATE, showResponseBody: !this.state.showResponseBody })
   }
 
-  toggleRequestParams () {
+  toggleRequestParams() {
     this.setState({ ...INITIAL_STATE, showRequestParams: !this.state.showRequestParams })
   }
 
-  shouldComponentUpdate (nextProps, nextState) {
-    return !(equals(nextProps, this.props) && equals(this.state, nextState))
-  }
-
-  render () {
+  render() {
     const { command } = this.props
     const {
-      showRequestHeaders, showResponseHeaders,
-      showRequestBody, showResponseBody,
-      showRequestParams
+      showRequestHeaders,
+      showResponseHeaders,
+      showRequestBody,
+      showResponseBody,
+      showRequestParams,
     } = this.state
     const { payload } = command
     const { duration } = payload
-    const status = dotPath('response.status', payload)
-    const url = dotPath('request.url', payload)
-    const method = toUpper(dotPath('request.method', payload) || '')
-    const requestHeaders = dotPath('request.headers', payload)
-    const responseHeaders = dotPath('response.headers', payload)
-    const requestBody = getRequestText(dotPath('request.data', payload))
-    const responseBody = dotPath('response.body', payload)
-    const requestParams = dotPath('request.params', payload)
-    const subtitle = `${status} ${method} in ${duration || '?'}ms`
+    const status = dotPath("response.status", payload)
+    const url = dotPath("request.url", payload)
+    const smallUrl = pipe(replace(/^http(s):\/\/[^/]+/i, ""), replace(/\?.*$/i, ""))(url)
+    const method = toUpper(dotPath("request.method", payload) || "")
+    const requestHeaders = dotPath("request.headers", payload)
+    const responseHeaders = dotPath("response.headers", payload)
+    const requestBody = getRequestText(dotPath("request.data", payload))
+    const responseBody = dotPath("response.body", payload)
+    const requestParams = dotPath("request.params", payload)
+    const subtitle = `${method} ${smallUrl}`
     const preview = subtitle
-    const summary = { 'Status Code': status, 'Method': method, 'Duration (ms)': duration }
+    const summary = { "Status Code": status, Method: method, "Duration (ms)": duration }
 
     return (
-      <Command command={command} title={COMMAND_TITLE} duration={duration} preview={preview}>
+      <Command {...this.props} title={COMMAND_TITLE} duration={duration} preview={preview}>
         <div style={Styles.container}>
-
           <div style={Styles.url}>{url}</div>
 
           {makeTable(summary)}
 
           <div style={Styles.sectionLinks}>
-            <SectionLink text={RESPONSE_BODY_TITLE} isActive={showResponseBody} onClick={this.toggleResponseBody} />
-            <SectionLink text={RESPONSE_HEADER_TITLE} isActive={showResponseHeaders} onClick={this.toggleResponseHeaders} />
-            {!isNilOrEmpty(requestBody) && <SectionLink text={REQUEST_BODY_TITLE} isActive={showRequestBody} onClick={this.toggleRequestBody} />}
-            {!isNilOrEmpty(requestParams) && <SectionLink text={REQUEST_PARAMS_TITLE} isActive={showRequestParams} onClick={this.toggleRequestParams} />}
-            <SectionLink text={REQUEST_HEADER_TITLE} isActive={showRequestHeaders} onClick={this.toggleRequestHeaders} />
+            <SectionLink
+              text={RESPONSE_BODY_TITLE}
+              isActive={showResponseBody}
+              onClick={this.toggleResponseBody}
+            />
+            <SectionLink
+              text={RESPONSE_HEADER_TITLE}
+              isActive={showResponseHeaders}
+              onClick={this.toggleResponseHeaders}
+            />
+            {!isNilOrEmpty(requestBody) && (
+              <SectionLink
+                text={REQUEST_BODY_TITLE}
+                isActive={showRequestBody}
+                onClick={this.toggleRequestBody}
+              />
+            )}
+            {!isNilOrEmpty(requestParams) && (
+              <SectionLink
+                text={REQUEST_PARAMS_TITLE}
+                isActive={showRequestParams}
+                onClick={this.toggleRequestParams}
+              />
+            )}
+            <SectionLink
+              text={REQUEST_HEADER_TITLE}
+              isActive={showRequestHeaders}
+              onClick={this.toggleRequestHeaders}
+            />
           </div>
 
           <div style={Styles.content}>
             {showResponseBody && <Content value={responseBody} />}
             {showResponseHeaders && makeTable(responseHeaders)}
-            {showRequestBody && (isNilOrEmpty(requestBody) ? NO_REQUEST_BODY : <Content value={requestBody} treeLevel={1} />)}
-            {showRequestParams && (isNilOrEmpty(requestParams) ? NO_REQUEST_PARAMS : <Content value={requestParams} />)}
+            {showRequestBody &&
+              (isNilOrEmpty(requestBody) ? (
+                NO_REQUEST_BODY
+              ) : (
+                <Content value={requestBody} treeLevel={1} />
+              ))}
+            {showRequestParams &&
+              (isNilOrEmpty(requestParams) ? NO_REQUEST_PARAMS : <Content value={requestParams} />)}
             {showRequestHeaders && makeTable(requestHeaders)}
           </div>
-
         </div>
       </Command>
     )

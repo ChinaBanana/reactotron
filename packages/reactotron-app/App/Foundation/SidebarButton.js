@@ -1,44 +1,59 @@
-import React, { Component, PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import AppStyles from '../Theme/AppStyles'
 import Colors from '../Theme/Colors'
-import { merge } from 'ramda'
+import { mergeAll } from 'ramda'
 
 const Styles = {
   container: {
     ...AppStyles.Layout.vbox,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    paddingTop: 15,
+    marginBottom: 15,
     color: Colors.highlight,
-    cursor: 'pointer'
+    cursor: 'pointer',
+    borderTop: `1px solid ${Colors.line}`,
+    marginLeft: 10,
+    marginRight: 10
+  },
+  containerTop: {
+    borderTop: 0
   },
   containerActive: {
     color: Colors.foregroundLight
   },
-  iconSize: 32
+  iconSize: 32,
+  text: {
+    paddingTop: 2,
+    textAlign: 'center',
+    fontSize: 12
+  }
 }
 
-class SidebarButton extends Component {
+const SidebarButton = props => {
+  const { icon, isActive, onClick, hideTopBorder, children } = props
+  const Icon = icon && require(`react-icons/lib/md/${icon}`)
+  const containerStyles = mergeAll([
+    Styles.container,
+    isActive ? Styles.containerActive : {},
+    hideTopBorder ? Styles.containerTop : {}
+  ])
 
-  static propTypes = {
-    icon: PropTypes.string.isRequired,
-    text: PropTypes.string,
-    isActive: PropTypes.bool.isRequired,
-    onClick: PropTypes.func.isRequired
-  }
+  return (
+    <div style={containerStyles} onClick={onClick}>
+      { icon && <Icon size={Styles.iconSize} /> }
+      { children }
+      <div style={Styles.text}>{props.text}</div>
+    </div>
+  )
+}
 
-  render () {
-    const { icon, isActive, onClick } = this.props
-    const Icon = require(`react-icons/lib/md/${icon}`)
-    const containerStyles = merge(Styles.container, isActive ? Styles.containerActive : {})
-
-    return (
-      <div style={containerStyles} onClick={onClick}>
-        <Icon size={Styles.iconSize} />
-      </div>
-    )
-  }
-
+SidebarButton.propTypes = {
+  icon: PropTypes.string,
+  text: PropTypes.string,
+  isActive: PropTypes.bool.isRequired,
+  onClick: PropTypes.func.isRequired,
+  hideTopBorder: PropTypes.bool
 }
 
 export default SidebarButton

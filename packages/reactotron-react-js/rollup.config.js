@@ -1,19 +1,28 @@
-import babel from 'rollup-plugin-babel'
-import babelrc from 'babelrc-rollup'
+import babel from "rollup-plugin-babel"
+import filesize from "rollup-plugin-filesize"
+import replace from "rollup-plugin-replace"
 
-const pkg = require('./package.json')
+const pkg = require("./package.json")
 const external = Object.keys(pkg.dependencies)
 
+const reactotronReactJsVersion = pkg.version
+
+
 export default {
-  entry: 'src/index.js',
-  format: 'cjs',
+  input: "src/index.js",
   plugins: [
     babel({
-      babelrc: babelrc(),
-      presets: ['es2015-rollup', 'stage-1']
-    })
+      presets: ["es2015-rollup", "stage-1"],
+    }),
+    replace({
+      REACTOTRON_REACT_JS_VERSION: reactotronReactJsVersion,
+    }),
+    filesize(),
   ],
   external,
-  dest: 'dist/index.js',
-  exports: 'named'
+  output: {
+    file: "dist/index.js",
+    format: "cjs",
+    exports: "named",
+  },
 }

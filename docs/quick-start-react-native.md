@@ -2,33 +2,15 @@
 
 ## Installing Reactotron.app
 
-Let’s [download the desktop app](https://github.com/reactotron/reactotron/releases/download/v1.6.0/Reactotron.app.zip) to start.  It’s OS X only at this point, but will shortly make available on Windows and Linux.
+Let’s [download the desktop app](./installing.md) to start.  You can download for Linux, Windows, and Mac.
 
 Unzip & run.
 
 ![Installing The App](./images/quick-start-react-js/installing.jpg)
 
+## Configure Reactotron with your project
 
-## From Scratch
-
-Let's start a brand new app from scratch.  If you want to use your own, skip to the next section.
-
-Download `react-native-cli` if you haven't yet:
-```
-npm i -g react-native-cli
-```
-
-Then spin up a brand new React Native app.
-```
-react-native init ReactotronDemo
-cd ReactotronDemo
-```
-
-You'll need to run this in an emulator for Android or the simulator for iOS.  Facebook has some [great guides](http://facebook.github.io/react-native/docs/getting-started.html#content) on getting started.
-
-## Installing Reactotron
-
-Let's install Reactotron as a dev dependency.
+Let's install Reactotron on your project as a dev dependency. Don't have a React Native project yet? [Follow the Getting Started guide in the React Native documentation](https://facebook.github.io/react-native/docs/getting-started.html).
 
 ```
 npm i --save-dev reactotron-react-native
@@ -40,11 +22,52 @@ I like a separate file for initializing.  Create `ReactotronConfig.js` in your e
 import Reactotron from 'reactotron-react-native'
 
 Reactotron
-  .configure() // we can use plugins here -- more on this later
+  .configure() // controls connection & communication settings
+  .useReactNative() // add all built-in react native plugins
   .connect() // let's connect!
 ```
 
-Finally, we import this on startup in `index.ios.js` and `index.android.js` on line 1:
+Or using a more advanced way to customize which plugins to include:
+
+```js
+import Reactotron from 'reactotron-react-native'
+
+Reactotron
+  .configure({
+    name: "React Native Demo"
+  })
+  .useReactNative({
+    asyncStorage: false, // there are more options to the async storage.
+    networking: { // optionally, you can turn it off with false.
+      ignoreUrls: /symbolicate/
+    },
+    editor: false, // there are more options to editor
+    errors: { veto: (stackFrame) => false }, // or turn it off with false
+    overlay: false, // just turning off overlay
+  })
+  .connect();
+```
+
+Alternatively, you can create your own plugin and provide it via:
+
+```js
+import Reactotron from 'reactotron-react-native'
+
+const middleware = (tron) => { /* plugin definition */ };
+
+Reactotron
+  .configure({
+    name: "React Native Demo"
+  })
+  .useReactNative() // add all built-in react native plugins
+  .use(middleware) // plus some custom made plugin.
+  .connect();
+```
+
+Finally, we import this on startup in
+- `App.js` (Create React Native App) or
+- `index.js`
+on line 1:
 
 ```js
 import './ReactotronConfig'
@@ -68,7 +91,9 @@ Pretty underwhelming huh?
 
 Let's do some classic programming.
 
-Open up `index.ios.js` or `index.android.js`.
+Open up
+- `App.js` (Create React Native App) or
+- `index.js`
 
 Right after the line you just added in the previous step lets put this:
 
@@ -82,7 +107,7 @@ Next, inside the `render()` function, put this as the first line:
 Reactotron.log('hello rendering world')
 ```
 
-Save that file and refresh your web page if you don't have live reloading.
+Save that file and refresh your app if you don't have live reloading.
 
 Now Reactotron looks like this:
 
@@ -127,11 +152,15 @@ Reactotron.display({
 })
 ```
 
+## Monitor your Redux store state changes
+
+Hooking up to redux requires some [additional set up](https://github.com/infinitered/reactotron/blob/master/docs/plugin-redux.md).
+
 ## Now What?
 
-Well, at this point, we have a complicated version of `console.log`.  
+Well, at this point, we have a complicated version of `console.log`.
 
-Where Reactotron starts to shine is when you start plugging into Redux, tracking global errors, and watching network requests.
+Where Reactotron starts to shine is when you start plugging into [Redux](./plugin-redux.md), tracking global errors, and watching network requests.
 
 Check out our [Demo](../packages/demo-react-native) for more goodies.
 

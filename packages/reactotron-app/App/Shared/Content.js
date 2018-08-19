@@ -1,15 +1,23 @@
-import React, { Component, PropTypes } from 'react'
-import { map, trim, split, isNil } from 'ramda'
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
+import { map, trim, split } from 'ramda'
 import ObjectTree from './ObjectTree'
 import isShallow from '../Lib/IsShallow'
 import makeTable from './MakeTable'
+import Colors from '../Theme/Colors'
 
-const NULL_TEXT = '¯\\_(ツ)_/¯'
+const OMG_NULL = <div style={{ color: Colors.tag }}>null</div>
+const OMG_UNDEFINED = <div style={{ color: Colors.tag }}>undefined</div>
 
 class Content extends Component {
-
   static propTypes = {
-    value: PropTypes.oneOfType([ PropTypes.object, PropTypes.array, PropTypes.string, PropTypes.number, PropTypes.bool ]),
+    value: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.bool
+    ]),
     treeLevel: PropTypes.number
   }
 
@@ -22,7 +30,10 @@ class Content extends Component {
   breakIntoSpans (part) {
     this.spanCount++
     return (
-      <span key={`span-${this.spanCount}`}>{part}<br /></span>
+      <span key={`span-${this.spanCount}`}>
+        {part}
+        <br />
+      </span>
     )
   }
 
@@ -48,20 +59,23 @@ class Content extends Component {
 
   renderMysteryMeat () {
     const { value } = this.props
-    return (
-      <div style={{ WebkitUserSelect: 'text', cursor: 'text' }}>{String(value)}</div>
-    )
+    return <div style={{ WebkitUserSelect: 'text', cursor: 'text' }}>{String(value)}</div>
   }
 
   render () {
     const { value } = this.props
-    if (isNil(value)) return <div>{NULL_TEXT}</div>
+    if (value === null) return OMG_NULL
+    if (value === undefined) return OMG_UNDEFINED
     const valueType = typeof value
     switch (valueType) {
-      case 'string': return this.renderString()
-      case 'object': return this.renderObject()
-      case 'array': return this.renderArray()
-      default: return this.renderMysteryMeat()
+      case 'string':
+        return this.renderString()
+      case 'object':
+        return this.renderObject()
+      case 'array':
+        return this.renderArray()
+      default:
+        return this.renderMysteryMeat()
     }
   }
 }
